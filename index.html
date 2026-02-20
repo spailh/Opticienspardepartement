@@ -18,45 +18,122 @@ margin-bottom: 20px;
 color: #333;
 }
 
-.stats-container {
+.groups-container {
 display: flex;
+flex-direction: column;
 gap: 15px;
 margin-bottom: 20px;
-flex-wrap: wrap;
 }
 
-.stat-block {
-flex: 1;
-min-width: 200px;
+.groups-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 10px;
+}
+
+.add-group-btn {
+background: #2196f3;
+color: white;
+border: none;
+padding: 10px 20px;
+border-radius: 8px;
+cursor: pointer;
+font-size: 14px;
+font-weight: bold;
+transition: background 0.3s;
+}
+
+.add-group-btn:hover {
+background: #1976d2;
+}
+
+.groups-list {
+display: flex;
+flex-direction: column;
+gap: 10px;
+}
+
+.group-item {
 background: white;
 border-radius: 8px;
 padding: 15px;
 box-shadow: 0 3px 8px rgba(0,0,0,0.1);
 display: flex;
 align-items: center;
-gap: 10px;
+gap: 15px;
+transition: all 0.3s;
 }
 
-.color-bar {
-width: 12px;
-height: 60px;
-border-radius: 6px;
+.group-item.active {
+border: 2px solid #2196f3;
+box-shadow: 0 5px 15px rgba(33,150,243,0.3);
 }
 
-.color-grey { background: #9e9e9e; }
-.color-yellow { background: #ffeb3b; }
-.color-orange { background: #ff9800; }
-.color-red { background: #f44336; }
+.group-color-picker {
+width: 50px;
+height: 50px;
+border: 2px solid #ddd;
+border-radius: 8px;
+cursor: pointer;
+flex-shrink: 0;
+}
 
-.stat-details {
+.group-name-input {
 flex: 1;
+padding: 8px 12px;
+border: 1px solid #ddd;
+border-radius: 6px;
+font-size: 14px;
 }
 
-.stat-details strong {
-display: block;
-font-size: 1.1em;
-margin-bottom: 5px;
+.group-stats {
+flex: 1;
+font-size: 14px;
+color: #666;
 }
+
+.group-stats strong {
+color: #333;
+font-size: 16px;
+}
+
+.group-actions {
+display: flex;
+gap: 10px;
+align-items: center;
+}
+
+.activate-group-btn {
+background: #4caf50;
+color: white;
+border: none;
+padding: 8px 16px;
+border-radius: 6px;
+cursor: pointer;
+font-size: 12px;
+transition: background 0.3s;
+}
+
+.activate-group-btn:hover {
+background: #45a049;
+}
+
+.delete-group-btn {
+background: #f44336;
+color: white;
+border: none;
+padding: 8px 16px;
+border-radius: 6px;
+cursor: pointer;
+font-size: 12px;
+transition: background 0.3s;
+}
+
+.delete-group-btn:hover {
+background: #da190b;
+}
+
 
 .map-container {
 background: white;
@@ -129,36 +206,14 @@ opacity: 0.8;
 <body>
 <h1>Carte Interactive des Opticiens par Département</h1>
 
-<div class="stats-container">
-<div class="stat-block">
-<div class="color-bar color-grey"></div>
-<div class="stat-details">
+<div class="groups-container">
+<div class="groups-header">
+<h2 style="margin: 0;">Groupes personnalisés</h2>
+<button class="add-group-btn" onclick="addGroup()">+ Ajouter un groupe</button>
+</div>
+<div class="groups-list" id="groupsList"></div>
+</div>
 
-<div id="stat-grey">Départements: 0<br/>Opticiens: 0<br/>(0.0%)</div>
-</div>
-</div>
-<div class="stat-block">
-<div class="color-bar color-yellow"></div>
-<div class="stat-details">
-
-<div id="stat-yellow">Départements: 0<br/>Opticiens: 0<br/>(0.0%)</div>
-</div>
-</div>
-<div class="stat-block">
-<div class="color-bar color-orange"></div>
-<div class="stat-details">
-
-<div id="stat-orange">Départements: 0<br/>Opticiens: 0<br/>(0.0%)</div>
-</div>
-</div>
-<div class="stat-block">
-<div class="color-bar color-red"></div>
-<div class="stat-details">
-
-<div id="stat-red">Départements: 0<br/>Opticiens: 0<br/>(0.0%)</div>
-</div>
-</div>
-</div>
 <div class="map-container">
 <div class="tooltip" id="tooltip"></div>
 <!-- Intégration de la carte SVG -->
@@ -2849,51 +2904,131 @@ const departments = [
   { number: "988", name: "Nouvelle Calédonie", opticians: 9 }
 ];
 
-// États de sélection : 0 = aucun, 1 = gris, 2 = jaune, 3 = orange, 4 = rouge
-let selectionStates = {};
+// Système de groupes personnalisés
+let groups = [];
+let activeGroupId = null;
+let departmentGroups = {}; // Map département -> groupeId
 const totalOpticians = departments.reduce((sum, d) => sum + d.opticians, 0);
-
-// Initialiser les états pour tous les départements
-departments.forEach(d => {
-  selectionStates[d.number] = 0;
-});
-
-console.log('États initialisés pour', departments.length, 'départements'); // Debug
 
 // Créer un index pour accès rapide aux données
 const deptData = {};
 departments.forEach(d => deptData[d.number] = d);
 
-function getColorClass(state) {
-  switch(state) {
-    case 1: return "selected-grey";
-    case 2: return "selected-yellow";
-    case 3: return "selected-orange";
-    case 4: return "selected-red";
-    default: return "";
+// Couleurs prédéfinies pour les groupes
+const defaultColors = [
+  '#9e9e9e', '#ffeb3b', '#ff9800', '#f44336',
+  '#2196f3', '#4caf50', '#9c27b0', '#00bcd4',
+  '#ff5722', '#795548', '#607d8b', '#e91e63'
+];
+
+let colorIndex = 0;
+
+function addGroup() {
+  const groupId = Date.now().toString();
+  const color = defaultColors[colorIndex % defaultColors.length];
+  colorIndex++;
+  
+  const newGroup = {
+    id: groupId,
+    name: `Groupe ${groups.length + 1}`,
+    color: color,
+    departments: []
+  };
+  
+  groups.push(newGroup);
+  renderGroups();
+  
+  // Activer automatiquement le nouveau groupe
+  setActiveGroup(groupId);
+}
+
+function deleteGroup(groupId) {
+  // Retirer tous les départements de ce groupe
+  const group = groups.find(g => g.id === groupId);
+  if (group) {
+    group.departments.forEach(deptNum => {
+      delete departmentGroups[deptNum];
+      updateDepartmentStyle(deptNum);
+    });
+  }
+  
+  // Supprimer le groupe
+  groups = groups.filter(g => g.id !== groupId);
+  
+  // Si c'était le groupe actif, désactiver
+  if (activeGroupId === groupId) {
+    activeGroupId = null;
+  }
+  
+  renderGroups();
+  updateAllStats();
+}
+
+function setActiveGroup(groupId) {
+  activeGroupId = groupId;
+  renderGroups();
+}
+
+function updateGroupName(groupId, newName) {
+  const group = groups.find(g => g.id === groupId);
+  if (group) {
+    group.name = newName;
+    renderGroups();
   }
 }
 
-function cycleState(deptNum) {
-  const oldState = selectionStates[deptNum];
-  selectionStates[deptNum] = (selectionStates[deptNum] + 1) % 5;
-  const newState = selectionStates[deptNum];
+function updateGroupColor(groupId, newColor) {
+  const group = groups.find(g => g.id === groupId);
+  if (group) {
+    group.color = newColor;
+    
+    // Mettre à jour tous les départements de ce groupe
+    group.departments.forEach(deptNum => {
+      updateDepartmentStyle(deptNum);
+    });
+    
+    renderGroups();
+  }
+}
+
+function toggleDepartment(deptNum) {
+  if (!activeGroupId) {
+    alert('Veuillez d\'abord sélectionner un groupe actif');
+    return;
+  }
   
-  const dept = deptData[deptNum];
-  const stateNames = ['blanc', 'gris', 'jaune', 'orange', 'rouge'];
+  const group = groups.find(g => g.id === activeGroupId);
+  if (!group) return;
   
-  console.log(`🔄 Département ${deptNum} (${dept.name}): ${stateNames[oldState]} → ${stateNames[newState]}`);
-  console.log('📊 États actuels:', selectionStates); // Debug complet
+  // Retirer le département de son groupe précédent s'il en avait un
+  const previousGroupId = departmentGroups[deptNum];
+  if (previousGroupId) {
+    const previousGroup = groups.find(g => g.id === previousGroupId);
+    if (previousGroup) {
+      previousGroup.departments = previousGroup.departments.filter(d => d !== deptNum);
+    }
+  }
+  
+  // Ajouter ou retirer du groupe actif
+  const index = group.departments.indexOf(deptNum);
+  if (index > -1) {
+    // Retirer du groupe actif
+    group.departments.splice(index, 1);
+    delete departmentGroups[deptNum];
+  } else {
+    // Ajouter au groupe actif
+    group.departments.push(deptNum);
+    departmentGroups[deptNum] = activeGroupId;
+  }
   
   updateDepartmentStyle(deptNum);
-  updateStats();
+  renderGroups();
+  updateAllStats();
 }
 
 function updateDepartmentStyle(deptNum) {
-  // Chercher dans le document principal
   let element = document.querySelector(`#dpt-${deptNum}`);
   
-  // Si pas trouvé, chercher dans le SVG chargé
   if (!element) {
     const svgObject = document.getElementById('france');
     if (svgObject && svgObject.contentDocument) {
@@ -2902,95 +3037,72 @@ function updateDepartmentStyle(deptNum) {
   }
   
   if (element) {
-    console.log(`Mise à jour du style pour département ${deptNum}, état: ${selectionStates[deptNum]}`); // Debug
+    const groupId = departmentGroups[deptNum];
     
-    // Retirer toutes les classes de couleur
-    element.classList.remove("selected-grey", "selected-yellow", "selected-orange", "selected-red");
-    
-    // Ajouter la nouvelle classe si nécessaire
-    const colorClass = getColorClass(selectionStates[deptNum]);
-    if (colorClass) {
-      element.classList.add(colorClass);
-      console.log(`Classe ${colorClass} ajoutée au département ${deptNum}`);
+    if (groupId) {
+      const group = groups.find(g => g.id === groupId);
+      if (group) {
+        element.setAttribute('fill', group.color);
+        // Retirer toutes les classes de couleur
+        element.classList.remove("selected-grey", "selected-yellow", "selected-orange", "selected-red");
+      }
     } else {
-      console.log(`Aucune classe de couleur pour l'état ${selectionStates[deptNum]}`);
+      element.setAttribute('fill', 'white');
+      element.classList.remove("selected-grey", "selected-yellow", "selected-orange", "selected-red");
     }
-    
-    // Appliquer aussi le style directement sur l'attribut fill
-    const colors = {
-      1: '#9e9e9e', // gris
-      2: '#ffeb3b', // jaune
-      3: '#ff9800', // orange
-      4: '#f44336'  // rouge
-    };
-    
-    if (selectionStates[deptNum] > 0) {
-      element.setAttribute('fill', colors[selectionStates[deptNum]]);
-      console.log(`Couleur ${colors[selectionStates[deptNum]]} appliquée au département ${deptNum}`);
-    } else {
-      element.setAttribute('fill', 'white'); // retour à blanc
-      console.log(`Couleur blanche appliquée au département ${deptNum}`);
-    }
-    
-  } else {
-    console.log(`Élément département ${deptNum} non trouvé`); // Debug
   }
 }
 
-function updateStats() {
-  const totals = { 
-    grey: {dep: 0, opt: 0}, 
-    yellow: {dep: 0, opt: 0}, 
-    orange: {dep: 0, opt: 0}, 
-    red: {dep: 0, opt: 0} 
-  };
-
-  console.log('=== CALCUL DES STATISTIQUES ==='); // Debug
-  console.log('États de sélection:', selectionStates); // Debug
-
-  // Parcourir tous les départements et compter ceux qui ont un état > 0
-  departments.forEach(dept => {
-    const state = selectionStates[dept.number];
+function renderGroups() {
+  const container = document.getElementById('groupsList');
+  if (!container) return;
+  
+  container.innerHTML = groups.map(group => {
+    const deptCount = group.departments.length;
+    const optCount = group.departments.reduce((sum, num) => {
+      const dept = deptData[num];
+      return sum + (dept ? dept.opticians : 0);
+    }, 0);
+    const percentage = totalOpticians > 0 ? ((optCount / totalOpticians) * 100).toFixed(1) : '0.0';
     
-    if (state > 0) {
-      const stateNames = ['', 'GRIS', 'JAUNE', 'ORANGE', 'ROUGE'];
-      console.log(`📍 Département ${dept.number} (${dept.name}): état ${state} (${stateNames[state]})`); // Debug détaillé
-      
-      switch(state) {
-        case 1: 
-          totals.grey.dep++; 
-          totals.grey.opt += dept.opticians; 
-          console.log(`  ✅ Ajouté au GRIS: ${dept.name} (${dept.opticians} opticiens)`);
-          break;
-        case 2: 
-          totals.yellow.dep++; 
-          totals.yellow.opt += dept.opticians; 
-          console.log(`  ✅ Ajouté au JAUNE: ${dept.name} (${dept.opticians} opticiens)`);
-          break;
-        case 3: 
-          totals.orange.dep++; 
-          totals.orange.opt += dept.opticians; 
-          console.log(`  ✅ Ajouté à l'ORANGE: ${dept.name} (${dept.opticians} opticiens)`);
-          break;
-        case 4: 
-          totals.red.dep++; 
-          totals.red.opt += dept.opticians; 
-          console.log(`  ✅ Ajouté au ROUGE: ${dept.name} (${dept.opticians} opticiens)`);
-          break;
-      }
-    }
-  });
+    const isActive = activeGroupId === group.id;
+    
+    return `
+      <div class="group-item ${isActive ? 'active' : ''}">
+        <input type="color" 
+               class="group-color-picker" 
+               value="${group.color}" 
+               onchange="updateGroupColor('${group.id}', this.value)"
+               title="Changer la couleur">
+        <input type="text" 
+               class="group-name-input" 
+               value="${group.name}" 
+               onchange="updateGroupName('${group.id}', this.value)"
+               placeholder="Nom du groupe">
+        <div class="group-stats">
+          <strong>${group.name}</strong><br>
+          Départements: ${deptCount} | Opticiens: ${optCount} (${percentage}%)
+        </div>
+        <div class="group-actions">
+          <button class="activate-group-btn" 
+                  onclick="setActiveGroup('${group.id}')"
+                  ${isActive ? 'disabled style="opacity: 0.5;"' : ''}>
+            ${isActive ? 'Actif' : 'Activer'}
+          </button>
+          <button class="delete-group-btn" onclick="deleteGroup('${group.id}')">Supprimer</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  if (groups.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Aucun groupe créé. Cliquez sur "Ajouter un groupe" pour commencer.</p>';
+  }
+}
 
-  console.log('=== TOTAUX CALCULÉS ===', totals); // Debug
-
-  document.getElementById("stat-grey").innerHTML = 
-    `Départements: ${totals.grey.dep}<br>Opticiens: ${totals.grey.opt}<br>(${((totals.grey.opt/totalOpticians)*100).toFixed(1)}%)`;
-  document.getElementById("stat-yellow").innerHTML = 
-    `Départements: ${totals.yellow.dep}<br>Opticiens: ${totals.yellow.opt}<br>(${((totals.yellow.opt/totalOpticians)*100).toFixed(1)}%)`;
-  document.getElementById("stat-orange").innerHTML = 
-    `Départements: ${totals.orange.dep}<br>Opticiens: ${totals.orange.opt}<br>(${((totals.orange.opt/totalOpticians)*100).toFixed(1)}%)`;
-  document.getElementById("stat-red").innerHTML = 
-    `Départements: ${totals.red.dep}<br>Opticiens: ${totals.red.opt}<br>(${((totals.red.opt/totalOpticians)*100).toFixed(1)}%)`;
+function updateAllStats() {
+  // Cette fonction met à jour les statistiques de tous les groupes
+  renderGroups();
 }
 
 // Gestion du tooltip
@@ -2999,33 +3111,37 @@ const tooltip = document.getElementById('tooltip');
 function showTooltip(e, deptNum) {
   const dept = deptData[deptNum];
   if (dept) {
-    tooltip.innerHTML = `<strong>${dept.name} (${deptNum})</strong><br>${dept.opticians} opticiens`;
+    const groupId = departmentGroups[deptNum];
+    let groupInfo = '';
+    if (groupId) {
+      const group = groups.find(g => g.id === groupId);
+      if (group) {
+        groupInfo = `<br><span style="color: ${group.color};">●</span> ${group.name}`;
+      }
+    }
     
-    // Utiliser les coordonnées de la souris
+    tooltip.innerHTML = `<strong>${dept.name} (${deptNum})</strong><br>${dept.opticians} opticiens${groupInfo}`;
+    
     const x = e.clientX || e.pageX;
     const y = e.clientY || e.pageY;
     
-    // Positionner le tooltip juste au-dessus du curseur
     const tooltipWidth = 150;
     const tooltipHeight = 40;
     
     let left = x - (tooltipWidth / 2);
-    let top = y - tooltipHeight - 5; // Plus proche du curseur
+    let top = y - tooltipHeight - 5;
     
-    // S'assurer que le tooltip reste dans la fenêtre
     if (left < 10) left = 10;
     if (left + tooltipWidth > window.innerWidth - 10) {
       left = window.innerWidth - tooltipWidth - 10;
     }
     if (top < 10) {
-      top = y + 5; // En dessous du curseur, plus proche
+      top = y + 5;
     }
     
     tooltip.style.left = left + 'px';
     tooltip.style.top = top + 'px';
     tooltip.style.display = 'block';
-    
-    console.log(`🎈 Tooltip affiché pour ${dept.name} à la position (${left}, ${top}) - souris: (${x}, ${y})`); // Debug
   }
 }
 
@@ -3035,53 +3151,42 @@ function hideTooltip() {
 
 // Initialisation
 function initializeApp() {
-  // Attendre que le SVG soit chargé
   const svgObject = document.getElementById('france');
   
   svgObject.addEventListener('load', function() {
-    console.log('SVG chargé avec succès'); // Debug
+    console.log('SVG chargé avec succès');
     
-    // Essayer d'accéder au contenu du SVG et ajouter nos propres événements
     try {
       const svgDoc = svgObject.contentDocument;
       if (svgDoc) {
         console.log('Accès au SVG réussi');
         
         let foundCount = 0;
-        let notFoundCount = 0;
         
-        // Supprimer les onclick intégrés et ajouter nos propres événements
         departments.forEach(dept => {
           const element = svgDoc.querySelector(`#dpt-${dept.number}`);
           if (element) {
             foundCount++;
-            console.log(`✓ Département ${dept.number} (${dept.name}) trouvé`);
             
-            // Supprimer l'onclick intégré
             element.removeAttribute('onclick');
             
-            // Ajouter notre propre événement click
             element.addEventListener('click', function(e) {
               e.preventDefault();
               e.stopPropagation();
-              console.log(`🎯 Clic sur département ${dept.number} (${dept.name})`);
-              cycleState(dept.number);
+              console.log(`Clic sur département ${dept.number} (${dept.name})`);
+              toggleDepartment(dept.number);
             });
             
-            // Ajouter les événements de survol
             element.addEventListener('mouseover', (e) => showTooltip(e, dept.number));
             element.addEventListener('mouseout', hideTooltip);
             element.addEventListener('mousemove', (e) => {
               tooltip.style.left = e.pageX + 10 + 'px';
               tooltip.style.top = e.pageY - 10 + 'px';
             });
-          } else {
-            notFoundCount++;
-            console.log(`✗ Département ${dept.number} (${dept.name}) NON TROUVÉ`);
           }
         });
         
-        console.log(`📊 Résumé: ${foundCount} départements trouvés, ${notFoundCount} non trouvés`);
+        console.log(`Résumé: ${foundCount} départements trouvés`);
         
       } else {
         console.log('Impossible d\'accéder au contenu du SVG');
@@ -3090,10 +3195,9 @@ function initializeApp() {
       console.error('Erreur lors de l\'accès au SVG:', error);
     }
     
-    updateStats();
+    renderGroups();
   });
   
-  // Ajouter un gestionnaire d'erreur
   svgObject.addEventListener('error', function() {
     console.error('Erreur lors du chargement du SVG');
   });
@@ -3101,6 +3205,7 @@ function initializeApp() {
 
 // Lancement de l'application
 document.addEventListener('DOMContentLoaded', initializeApp);
+
 </script>
 </body>
 </html>

@@ -3003,34 +3003,30 @@ function toggleDepartment(deptNum) {
     alert('Veuillez d\'abord sélectionner un groupe actif');
     return;
   }
-  
+
   const group = groups.find(g => g.id === activeGroupId);
   if (!group) return;
-  
-  // Retirer le département de son groupe précédent s'il en avait un
+
   const previousGroupId = departmentGroups[deptNum];
-  if (previousGroupId) {
-    const previousGroup = groups.find(g => g.id === previousGroupId);
-    if (previousGroup) {
-      previousGroup.departments = previousGroup.departments.filter(d => d !== deptNum);
-    }
-  }
-  
-  // Ajouter ou retirer du groupe actif
-  const index = group.departments.indexOf(deptNum);
-  if (index > -1) {
-    // Retirer du groupe actif
-    group.departments.splice(index, 1);
+
+  if (previousGroupId === activeGroupId) {
+    // Déjà dans le groupe actif → désélectionner
+    group.departments = group.departments.filter(d => d !== deptNum);
     delete departmentGroups[deptNum];
   } else {
-    // Ajouter au groupe actif
+    // Dans un autre groupe ou non sélectionné → retirer de l'ancien et ajouter ici
+    if (previousGroupId) {
+      const previousGroup = groups.find(g => g.id === previousGroupId);
+      if (previousGroup) {
+        previousGroup.departments = previousGroup.departments.filter(d => d !== deptNum);
+      }
+    }
     group.departments.push(deptNum);
     departmentGroups[deptNum] = activeGroupId;
   }
-  
+
   updateDepartmentStyle(deptNum);
   renderGroups();
-  updateAllStats();
 }
 
 function updateDepartmentStyle(deptNum) {

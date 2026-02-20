@@ -21,7 +21,7 @@ color: #333;
 .groups-container {
 display: flex;
 flex-direction: column;
-gap: 15px;
+gap: 10px;
 margin-bottom: 20px;
 }
 
@@ -29,7 +29,7 @@ margin-bottom: 20px;
 display: flex;
 justify-content: space-between;
 align-items: center;
-margin-bottom: 10px;
+margin-bottom: 6px;
 }
 
 .add-group-btn {
@@ -51,88 +51,89 @@ background: #1976d2;
 .groups-list {
 display: flex;
 flex-direction: column;
-gap: 10px;
+gap: 8px;
 }
 
 .group-item {
 cursor: pointer;
 background: white;
-border-radius: 8px;
-padding: 15px;
-box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+border-radius: 10px;
+padding: 10px 14px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 display: flex;
 align-items: center;
-gap: 15px;
-transition: all 0.3s;
+gap: 12px;
+transition: all 0.2s;
+border: 2px solid transparent;
+}
+
+.group-item:hover {
+box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
 .group-item.active {
-border: 2px solid #2196f3;
-box-shadow: 0 5px 15px rgba(33,150,243,0.3);
+box-shadow: 0 4px 14px rgba(0,0,0,0.15);
 }
 
 .group-color-picker {
-width: 50px;
-height: 50px;
-border: 2px solid #ddd;
+width: 40px;
+height: 40px;
+border: none;
 border-radius: 8px;
 cursor: pointer;
 flex-shrink: 0;
+padding: 2px;
+background: none;
 }
 
 .group-name-input {
 flex: 1;
-padding: 8px 12px;
+min-width: 120px;
+padding: 7px 11px;
 border: 1px solid #ddd;
 border-radius: 6px;
 font-size: 14px;
+outline: none;
+transition: border-color 0.2s;
 }
 
-.group-stats {
-flex: 1;
-font-size: 14px;
-color: #666;
+.group-name-input:focus {
+border-color: #2196f3;
 }
 
-.group-stats strong {
+.stat-badge {
+background: #f0f4f8;
+border-radius: 20px;
+padding: 5px 14px;
+font-size: 13px;
 color: #333;
-font-size: 16px;
+font-weight: 600;
+white-space: nowrap;
 }
 
-.group-actions {
-display: flex;
-gap: 10px;
-align-items: center;
-}
-
-.activate-group-btn {
-background: #4caf50;
-color: white;
-border: none;
-padding: 8px 16px;
-border-radius: 6px;
-cursor: pointer;
+.stat-badge .stat-label {
+color: #888;
+font-weight: 400;
 font-size: 12px;
-transition: background 0.3s;
-}
-
-.activate-group-btn:hover {
-background: #45a049;
+margin-left: 4px;
 }
 
 .delete-group-btn {
-background: #f44336;
-color: white;
+background: none;
 border: none;
-padding: 8px 16px;
-border-radius: 6px;
+color: #bbb;
 cursor: pointer;
-font-size: 12px;
-transition: background 0.3s;
+font-size: 20px;
+line-height: 1;
+padding: 4px 6px;
+border-radius: 4px;
+transition: color 0.2s, background 0.2s;
+flex-shrink: 0;
 }
 
 .delete-group-btn:hover {
-background: #da190b;
+color: #f44336;
+background: #ffeaea;
 }
 
 
@@ -149,6 +150,11 @@ padding: 15px;
 border-radius: 8px;
 margin-bottom: 20px;
 border-left: 4px solid #2196f3;
+}
+
+/* Force la couleur des départements sélectionnés via style inline (priorité sur SVG CSS) */
+#france path[style*="fill"] {
+  fill: inherit;
 }
 
 /* Styles pour la carte SVG */
@@ -208,11 +214,10 @@ opacity: 0.8;
 <h1>Carte Interactive des Opticiens par Département</h1>
 
 <div class="groups-container">
-<div class="groups-header">
-<h2 style="margin: 0;">Groupes personnalisés</h2>
-<button class="add-group-btn" onclick="addGroup()">+ Ajouter un groupe</button>
-</div>
 <div class="groups-list" id="groupsList"></div>
+<div style="margin-top:8px;display:flex;justify-content:flex-end;">
+  <button class="add-group-btn" onclick="addGroup()">+ Ajouter un groupe</button>
+</div>
 </div>
 
 <div class="map-container">
@@ -2974,7 +2979,7 @@ function updateGroupName(groupId, newName) {
   const group = groups.find(g => g.id === groupId);
   if (group) {
     group.name = newName;
-    renderGroups();
+    // Ne pas appeler renderGroups() ici pour ne pas perdre le focus du champ texte
   }
 }
 
@@ -2982,13 +2987,14 @@ function updateGroupColor(groupId, newColor) {
   const group = groups.find(g => g.id === groupId);
   if (group) {
     group.color = newColor;
-    
-    // Mettre à jour tous les départements de ce groupe
     group.departments.forEach(deptNum => {
       updateDepartmentStyle(deptNum);
     });
-    
-    renderGroups();
+    // Mettre à jour la bordure du groupe actif
+    const groupEl = document.querySelector(`.group-item[onclick*="${groupId}"]`);
+    if (groupEl && activeGroupId === groupId) {
+      groupEl.style.borderColor = newColor;
+    }
   }
 }
 
@@ -3028,28 +3034,36 @@ function toggleDepartment(deptNum) {
 }
 
 function updateDepartmentStyle(deptNum) {
-  let element = document.querySelector(`#dpt-${deptNum}`);
-  
-  if (!element) {
-    const svgObject = document.getElementById('france');
-    if (svgObject && svgObject.contentDocument) {
-      element = svgObject.contentDocument.querySelector(`#dpt-${deptNum}`);
-    }
-  }
-  
+  const element = document.querySelector(`#dpt-${deptNum}`);
+  const groupId = departmentGroups[deptNum];
+  const group = groupId ? groups.find(g => g.id === groupId) : null;
+  const color = group ? group.color : 'white';
+
+  // Colorier le département sur la carte
   if (element) {
-    const groupId = departmentGroups[deptNum];
-    
-    if (groupId) {
-      const group = groups.find(g => g.id === groupId);
-      if (group) {
-        element.setAttribute('fill', group.color);
-        // Retirer toutes les classes de couleur
-        element.classList.remove("selected-grey", "selected-yellow", "selected-orange", "selected-red");
-      }
-    } else {
-      element.setAttribute('fill', 'white');
-      element.classList.remove("selected-grey", "selected-yellow", "selected-orange", "selected-red");
+    element.style.fill = color;
+  }
+
+  // Colorier la case numérotée dans la légende (id_btns correspond à selections par index)
+  const idx = selections.findIndex(s => s[0] === `dpt-${deptNum}`);
+  if (idx !== -1) {
+    const rectId = id_btns[idx][0];
+    const rectEl = document.getElementById(rectId);
+    if (rectEl) rectEl.style.fill = color;
+  }
+
+  // Cas spécial : rect_paris se colore avec la couleur dominante des 4 depts parisiens
+  const parisNums = ['75','92','93','94'];
+  if (parisNums.includes(String(deptNum))) {
+    const parisColors = parisNums
+      .map(n => {
+        const gId = departmentGroups[n];
+        return gId ? groups.find(g => g.id === gId) : null;
+      })
+      .filter(Boolean);
+    const rectParis = document.getElementById('rect_paris');
+    if (rectParis) {
+      rectParis.style.fill = parisColors.length > 0 ? parisColors[0].color : 'white';
     }
   }
 }
@@ -3057,43 +3071,47 @@ function updateDepartmentStyle(deptNum) {
 function renderGroups() {
   const container = document.getElementById('groupsList');
   if (!container) return;
-  
+
+  if (groups.length === 0) {
+    container.innerHTML = '<p style="text-align:center;color:#aaa;padding:16px 0;font-size:14px;">Aucun groupe. Cliquez sur <strong>+ Ajouter un groupe</strong> pour commencer.</p>';
+    return;
+  }
+
   container.innerHTML = groups.map(group => {
-    const deptCount = group.departments.length;
     const optCount = group.departments.reduce((sum, num) => {
       const dept = deptData[num];
       return sum + (dept ? dept.opticians : 0);
     }, 0);
-    const percentage = totalOpticians > 0 ? ((optCount / totalOpticians) * 100).toFixed(1) : '0.0';
-    
+    const deptCount = group.departments.length;
     const isActive = activeGroupId === group.id;
-    
+    const borderStyle = isActive ? `border-color: ${group.color};` : '';
+
     return `
-      <div class="group-item ${isActive ? \'active\' : \'\'}" onclick="setActiveGroup(\'${group.id}\')">
-        <input type="color" 
-               class="group-color-picker" 
-               value="${group.color}" 
-               onclick="event.stopPropagation()" onchange="updateGroupColor('${group.id}', this.value)"
+      <div class="group-item ${isActive ? 'active' : ''}"
+           style="${borderStyle}"
+           onclick="setActiveGroup('${group.id}')">
+        <input type="color"
+               class="group-color-picker"
+               value="${group.color}"
+               onclick="event.stopPropagation()"
+               oninput="updateGroupColor('${group.id}', this.value)"
                title="Changer la couleur">
-        <input type="text" 
-               class="group-name-input" 
-               value="${group.name}" 
-               onclick="event.stopPropagation()" onchange="updateGroupName('${group.id}', this.value)"
+        <input type="text"
+               class="group-name-input"
+               value="${group.name}"
+               onclick="event.stopPropagation()"
+               oninput="updateGroupName('${group.id}', this.value)"
                placeholder="Nom du groupe">
-        <div class="group-stats">
-          <strong>${group.name}</strong><br>
-          Départements: ${deptCount} | Opticiens: ${optCount} (${percentage}%)
+        <div class="stat-badge">
+          ${optCount.toLocaleString('fr-FR')} opticiens
+          <span class="stat-label">${deptCount > 0 ? '— ' + ((optCount / totalOpticians) * 100).toFixed(1) + '% — ' + deptCount + ' dépt.' : ''}</span>
         </div>
-        <div class="group-actions">
-          <button class="delete-group-btn" onclick="event.stopPropagation(); deleteGroup('${group.id}')">Supprimer</button>
-        </div>
+        <button class="delete-group-btn"
+                onclick="event.stopPropagation(); deleteGroup('${group.id}')"
+                title="Supprimer ce groupe">×</button>
       </div>
     `;
   }).join('');
-  
-  if (groups.length === 0) {
-    container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Aucun groupe créé. Cliquez sur "Ajouter un groupe" pour commencer.</p>';
-  }
 }
 
 function updateAllStats() {
@@ -3147,50 +3165,35 @@ function hideTooltip() {
 
 // Initialisation
 function initializeApp() {
-  const svgObject = document.getElementById('france');
-  
-  svgObject.addEventListener('load', function() {
-    console.log('SVG chargé avec succès');
-    
-    try {
-      const svgDoc = svgObject.contentDocument;
-      if (svgDoc) {
-        console.log('Accès au SVG réussi');
-        
-        let foundCount = 0;
-        
-        departments.forEach(dept => {
-          const element = svgDoc.querySelector(`#dpt-${dept.number}`);
-          if (element) {
-            foundCount++;
-            
-            element.removeAttribute('onclick');
-            
-            element.addEventListener('click', function(e) {
-              e.preventDefault();
-              e.stopPropagation();
-              console.log(`Clic sur département ${dept.number} (${dept.name})`);
-              toggleDepartment(dept.number);
-            });
-            
-          }
-        });
-        
-        console.log(`Résumé: ${foundCount} départements trouvés`);
-        
-      } else {
-        console.log('Impossible d\'accéder au contenu du SVG');
-      }
-    } catch (error) {
-      console.error('Erreur lors de l\'accès au SVG:', error);
+  let foundCount = 0;
+
+  departments.forEach(dept => {
+    const element = document.querySelector(`#dpt-${dept.number}`);
+    if (element) {
+      foundCount++;
+
+      // Supprimer le handler onclick original du SVG
+      element.removeAttribute('onclick');
+
+      // Supprimer le titre natif pour éviter les tooltips du navigateur
+      const title = element.querySelector('title');
+      if (title) title.remove();
+
+      element.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleDepartment(dept.number);
+      });
     }
-    
-    renderGroups();
   });
-  
-  svgObject.addEventListener('error', function() {
-    console.error('Erreur lors du chargement du SVG');
-  });
+
+  // Supprimer TOUS les titres SVG restants (régions, etc.) pour éviter tout tooltip natif
+  document.querySelectorAll('#france title').forEach(t => t.remove());
+
+  console.log(`Résumé: ${foundCount} départements trouvés`);
+
+  // Créer un groupe par défaut au démarrage
+  addGroup();
 }
 
 // Lancement de l'application
